@@ -521,7 +521,7 @@ function drush_islandora_datastream_crud_setlabel_fromdc() {
     }
     // Update object label from DC if dsid exists.
     if (isset($object['DC'])) {
-      $dublincore = $object['DC'];
+      $dublincore = $object['DC']->content;
       $dc_xml = new SimpleXmlElement($dublincore);
       $namespaces = $dc_xml->getNameSpaces(TRUE);
       $dc = $dc_xml->children($namespaces['dc']);
