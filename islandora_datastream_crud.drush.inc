@@ -165,7 +165,7 @@ function islandora_datastream_crud_drush_command() {
   );
 
   $items['islandora_datastream_crud_setlabel_fromdc'] = array(
-    'aliases' => array('idcrudgd'),
+    'aliases' => array('idcrudsldc'),
     'description' => 'Replaces Object labels with DC title if they differ',
     'examples' => array(
       'drush islandora_datastream_crud_setlabel_fromdc --user=admin --pid_file=/tmp/pids_of_objectlabels_to_update.txt',
