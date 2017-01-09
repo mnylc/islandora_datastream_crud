@@ -164,6 +164,26 @@ function islandora_datastream_crud_drush_command() {
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
   );
 
+  $items['islandora_datastream_crud_setlabel_fromdc'] = array(
+    'aliases' => array('idcrudgd'),
+    'description' => 'Replaces Object labels with DC title if they differ',
+    'examples' => array(
+      'drush islandora_datastream_crud_setlabel_fromdc --user=admin --pid_file=/tmp/pids_of_objectlabels_to_update.txt',
+    ),
+    'options' => array(
+      'pid_file' => array(
+        'description' => 'Absolute path to the file that lists PIDs for objects you want to update their labels.' ,
+        'required' => TRUE,
+      ),
+      'datastreams_crud_log' => array(
+        'description' => 'Optional. Absolute path to the CRUD log. If present, the PID, DSID, and a message will be written to the specified file.' ,
+      ),
+      'pause' => array(
+        'description' => 'Optional. Number of seconds to pause before updating the next Object Label.' ,
+      ),
+    ),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_LOGIN,
+  );
   return $items;
 }
 
@@ -465,6 +485,51 @@ function drush_islandora_datastream_crud_generate_derivatives() {
         foreach ($message['messages'] as $ds_message) {
           drush_set_error('DERIVATIVE_NOT_GENERATED', strip_tags(dt($ds_message['message'], $ds_message['message_sub'])));
         }
+      }
+    }
+  }
+}
+
+/**
+ * Regenerates derivative datastreams.
+ */
+function drush_islandora_datastream_crud_setlabel_fromdc() {
+  module_load_include('inc', 'islandora_datastream_crud', 'includes/utilities');
+  $pids = islandora_datastream_crud_read_pid_file(drush_get_option('pid_file'));
+  $dsid = drush_get_option('source_dsid');
+  if (!drush_confirm(dt("You are about to update the label " .
+    "with title element from DC datastream for !num object(s) in your repository. This action " .
+      "cannot be undone. Do you want to want to continue?",
+  array('!num' => count($pids), '!dsid' => $dsid)))) {
+    drush_user_abort(dt('Exiting, no Object labels were changed.'));
+  }
+  if (!count($pids)) {
+    drush_set_error('NO_PIDS_IN_PID_FILE',
+    dt('The specified PID file (!pid_file) contains no PIDS.',
+    array('!pid_file' => $pid_file)));
+  }
+  foreach ($pids as $pid) {
+    if (drush_get_option('pause')) {
+      sleep(drush_get_option('pause'));
+    }
+    // Load the object.
+    if (!$object = islandora_object_load($pid)) {
+      drush_set_error('IBD_OBJECT_NOT_FOUND',
+      dt('The specified object (!pid) does not exist or is not accessible.',
+      array('!pid' => $pid)));
+      continue;
+    }
+    // Update object label from DC if dsid exists.
+    if (isset($object['DC'])) {
+      $dublincore = $object['DC'];
+      $dc_xml = new SimpleXmlElement($dublincore);
+      $namespaces = $dc_xml->getNameSpaces(TRUE);
+      $dc = $dc_xml->children($namespaces['dc']);
+      $new_title = $dc->title;
+      if ($new_title != $object->label) {
+        $old_title = $object->label;
+        $object->label = $new_title;
+        islandora_datastream_crud_write_crudlog($pid, $dsid, 'Object label updated from "' . $old_title . '" to "' . $new_title . '"');
       }
     }
   }
